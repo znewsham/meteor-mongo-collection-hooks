@@ -1,0 +1,33 @@
+{
+  "include": ["src/server/*", "src/lib/*", "src/client/*", "test/*"],
+  // "exclude": ["src/*", "src/lib/*", "src/server/*", "src/client/*", "test/*"],
+  "compilerOptions": {
+    "outDir": "lib",
+    "module": "CommonJS",
+    "target": "es2016",
+    "declaration": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "types": [
+      "mocha",
+      "meteor"
+    ],
+
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "maxNodeModuleJsDepth": 2,
+    "baseUrl": ".",
+    "paths": {
+      "meteor/znewsham:mongo-collection-hooks": [
+        "./src/server/index.ts"
+      ],
+      "meteor/*": [
+        "../node_modules/@types/meteor/*"
+      ]
+    }
+  }
+}

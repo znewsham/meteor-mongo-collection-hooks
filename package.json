@@ -1,0 +1,25 @@
+{
+  "name": "meteor-mongo-collection-hooks",
+  "version": "1.0.0",
+  "description": "",
+  "main": "package.js",
+  "type": "module",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "peerDependencies": {
+    "mongo-collection-hooks": "^0.1.3"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/meteor": "^2.9.8",
+    "@types/mocha": "^10.0.7",
+    "mongo-collection-hooks": "^0.1.3",
+    "mongodb": "^6.7.0",
+    "typescript": "^5.5.2"
+  }
+}
