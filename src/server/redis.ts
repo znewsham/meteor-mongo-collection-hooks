@@ -1,112 +1,99 @@
-import { BulkWriteError } from "mongo-collection-hooks";
-// @ts-expect-error
-import { Vent, Events, RedisPipe } from "meteor/cultofcoders:redis-oplog";
-// @ts-expect-error
+import { BulkWriteError } from "mongo-collection-hooks/es2015";
+
+import { Vent } from "meteor/cultofcoders:redis-oplog";
 import RedisSubscriptionManager from "meteor/cultofcoders:redis-oplog/lib/redis/RedisSubscriptionManager";
-// @ts-expect-error
 import OptimisticInvocation from "meteor/cultofcoders:redis-oplog/lib/mongo/OptimisticInvocation";
 // @ts-expect-error
 import { DDPServer } from "meteor/ddp-server";
 import { MeteorHookedCollection } from "../lib/collection";
 
-type RedisOptions = {
-  channel?: string,
-  channels?: string[],
-  namespace?: string,
-  namespaces?: string[],
-  optimistic?: boolean,
-  pushToRedis?: boolean
-}
+import { getSubManager } from "./subManager";
 
-export function getChannels(defaultChannel: string, options: RedisOptions = {}, docIds?: string[]) {
-  const channels: string[] = [];
-  if (options.channel) {
-    channels.push(options.channel);
-  }
-  if (options.channels) {
-    channels.push(...options.channels);
-  }
 
-  if (options.namespace) {
-    channels.push(`${options.namespace}::${defaultChannel}`);
-  }
-  if (options.namespaces) {
-    channels.push(...options.namespaces.map(namespace => `${namespace}::${defaultChannel}`));
-  }
-  if (channels.length === 0) {
-    channels.push(defaultChannel);
-    if (docIds) {
-      docIds.forEach(docId => channels.push(`${defaultChannel}::${docId}`));
-    }
-  }
-  return channels;
-}
+import {
+  RedisOptions,
+  Events,
+  RedisPipe,
+} from "observe-mongo/es2015/redis";
+import { getChannels } from "observe-mongo/es2015/redis";
+import type { Stringable } from "observe-mongo/es2015";
 
-export function handleRemove(defaultChannel: string, _ids: string[], options: RedisOptions) {
-  _ids.forEach((_id) => {
-    const channels = getChannels(defaultChannel, options, [_id]);
-    const optimistic = options?.optimistic !== false;
-    channels.forEach((channel) => {
-      const event = {
-        [RedisPipe.EVENT]: Events.REMOVE,
-        [RedisPipe.DOC]: { _id },
-        [RedisPipe.UID]: optimistic ? null : RedisSubscriptionManager.uid
-      };
-      Vent.emit(channel, event);
-      if (optimistic) {
-        OptimisticInvocation.withValue(true, () => RedisSubscriptionManager.process(channel, event, false));
-      }
-    });
-  });
-}
+export { getChannels };
 
-export function handleUpdate(defaultChannel: string, _ids: string[], fields: string[], options: RedisOptions) {
-  _ids.forEach((_id) => {
-    const channels = getChannels(defaultChannel, options, [_id]);
-    const optimistic = options?.optimistic !== false;
-    channels.forEach((channel) => {
-      const event = {
-        [RedisPipe.EVENT]: Events.UPDATE,
-        [RedisPipe.DOC]: { _id },
-        [RedisPipe.FIELDS]: fields,
-        [RedisPipe.UID]: optimistic ? null : RedisSubscriptionManager.uid
-      };
-      Vent.emit(channel, event);
-      if (optimistic) {
-        OptimisticInvocation.withValue(true, () => RedisSubscriptionManager.process(channel, event, false));
-      }
-    });
-  });
-}
-
-export function handleInserts(defaultChannel: string, insertedIds: string[], options: RedisOptions) {
+export async function handleRemove(defaultChannel: string, _ids: string[], options: RedisOptions) {
   if (options?.pushToRedis !== false) {
-    const fence = DDPServer._CurrentWriteFence.get();
-    if (fence) {
-
-    }
-    const channels = getChannels(defaultChannel, options);
-    const optimistic = options?.optimistic !== false;
-    insertedIds.forEach((id) => {
-      channels.forEach((channel) => {
+    await Promise.all(_ids.map(async (_id) => {
+      const channels = getChannels(defaultChannel, options, [_id]);
+      const optimistic = options?.optimistic !== false;
+      await Promise.all(channels.map(async (channel) => {
         const event = {
-          [RedisPipe.EVENT]: Events.INSERT,
-          [RedisPipe.DOC]: { _id: id },
-          [RedisPipe.UID]: optimistic ? null : RedisSubscriptionManager.uid
+          [RedisPipe.EVENT]: Events.REMOVE,
+          [RedisPipe.DOC]: { _id },
+          [RedisPipe.UID]: RedisSubscriptionManager.uid
         };
         Vent.emit(channel, event);
         if (optimistic) {
+          if (getSubManager()) {
+            await getSubManager().process(channel, event, { optimistic });
+          }
           OptimisticInvocation.withValue(true, () => RedisSubscriptionManager.process(channel, event, false));
         }
-      });
-    });
+      }));
+    }));
+  }
+}
+
+export async function handleUpdate(defaultChannel: string, _ids: string[], fields: string[], options: RedisOptions) {
+  if (options?.pushToRedis !== false) {
+    await Promise.all(_ids.map(async (_id) => {
+      const channels = getChannels(defaultChannel, options, [_id]);
+      const optimistic = options?.optimistic !== false;
+      await Promise.all(channels.map(async (channel) => {
+        const event = {
+          [RedisPipe.EVENT]: Events.UPDATE,
+          [RedisPipe.DOC]: { _id },
+          [RedisPipe.FIELDS]: fields,
+          [RedisPipe.UID]: RedisSubscriptionManager.uid
+        };
+        Vent.emit(channel, event);
+        if (optimistic) {
+          if (getSubManager()) {
+            const result = await (getSubManager().process(channel, event, { optimistic }));
+          }
+          OptimisticInvocation.withValue(true, () => RedisSubscriptionManager.process(channel, event, false));
+        }
+      }));
+    }));
+  }
+}
+
+export async function handleInserts(defaultChannel: string, insertedIds: string[], options: RedisOptions) {
+  if (options?.pushToRedis !== false) {
+    const channels = getChannels(defaultChannel, options);
+    const optimistic = options?.optimistic !== false;
+    await Promise.all(insertedIds.map(async (id) => {
+      await Promise.all(channels.map(async (channel) => {
+        const event = {
+          [RedisPipe.EVENT]: Events.INSERT,
+          [RedisPipe.DOC]: { _id: id },
+          [RedisPipe.UID]: RedisSubscriptionManager.uid
+        };
+        Vent.emit(channel, event);
+        if (optimistic) {
+          if (getSubManager()) {
+            await getSubManager().process(channel, event, { optimistic });
+          }
+          OptimisticInvocation.withValue(true, () => RedisSubscriptionManager.process(channel, event, false));
+        }
+      }));
+    }));
   }
 }
 
 
-export function applyRedis<TSchema extends Document>(collection: MeteorHookedCollection<TSchema>) {
+export function applyRedis<TSchema extends Document & { _id: Stringable }>(collection: MeteorHookedCollection<TSchema>) {
   const defaultChannel = collection.collectionName;
-  collection.on("after.insertOne", ({
+  collection.on("after.insertOne", async ({
     args: [, options],
     resultOrig,
     error
@@ -118,10 +105,10 @@ export function applyRedis<TSchema extends Document>(collection: MeteorHookedCol
     else if (error) {
       return;
     }
-    handleInserts(defaultChannel, insertedIds as unknown as string[], options as RedisOptions);
+    await handleInserts(defaultChannel, insertedIds as unknown as string[], options as RedisOptions);
   }, { tags: ["redis"] });
 
-  collection.on("after.insertMany", ({
+  collection.on("after.insertMany", async ({
     args: [, options],
     resultOrig,
     error
@@ -133,39 +120,39 @@ export function applyRedis<TSchema extends Document>(collection: MeteorHookedCol
     else if (error) {
       return;
     }
-    handleInserts(defaultChannel, insertedIds as unknown as string[], options as RedisOptions);
+    await handleInserts(defaultChannel, insertedIds as unknown as string[], options as RedisOptions);
   }, { tags: ["redis"] });
 
-  collection.on("after.deleteOne", ({
+  collection.on("after.deleteOne", async ({
     args: [, options],
     _id
   }) => {
-    handleRemove(defaultChannel, [_id as unknown as string], options as RedisOptions);
+    await handleRemove(defaultChannel, [_id as unknown as string], options as RedisOptions);
   }, { tags: ["redis"], includeId: true });
 
-  collection.on("after.deleteMany", ({
+  collection.on("after.deleteMany", async ({
     args: [, options],
     _ids
   }) => {
     // TODO: what about partial deletion?
-    handleRemove(defaultChannel, _ids as unknown as string[], options as RedisOptions);
+    await handleRemove(defaultChannel, _ids as unknown as string[], options as RedisOptions);
   }, { tags: ["redis"], includeIds: true });
 
-  collection.on("after.updateOne", ({
+  collection.on("after.updateOne", async ({
     args: [, mutator, options],
     _id,
   }) => {
     const fields = Array.from(new Set(Object.values(mutator).flatMap($mutator => Object.keys($mutator))));
     // TODO: what about partial deletion?
-    handleUpdate(defaultChannel, [_id as unknown as string], fields, options as RedisOptions || {});
+    await handleUpdate(defaultChannel, [_id as unknown as string], fields, options as RedisOptions || {});
   }, { tags: ["redis"], includeId: true });
 
-  collection.on("after.updateMany", ({
+  collection.on("after.updateMany", async ({
     args: [, mutator, options],
     _ids
   }) => {
     const fields = Array.from(new Set(Object.values(mutator).flatMap($mutator => Object.keys($mutator))));
     // TODO: what about partial deletion?
-    handleUpdate(defaultChannel, _ids as unknown as string[], fields, options as RedisOptions || {});
+    await handleUpdate(defaultChannel, _ids as unknown as string[], fields, options as RedisOptions || {});
   }, { tags: ["redis"], includeIds: true });
 }

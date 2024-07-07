@@ -1,3 +1,5 @@
 lib
+!src/lib
 .npm
 package-lock.json
+node_modules

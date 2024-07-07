@@ -1,73 +1,50 @@
-import type { FindCursor } from "mongodb";
+import type { Filter, ObjectId } from "mongodb";
+// @ts-expect-error
+import { LocalCollection } from "meteor/minimongo";
 
-export class ClientCursor<TSchema = Document> implements Pick<FindCursor<TSchema>, "next" | "toArray" | "forEach" | "map" | "count"> {
-  #meteorCursor;
-  #mapTransform = (doc: TSchema) => doc;
-  #i = 0;
-  #iterator: Iterator<TSchema> | undefined;
-  constructor(meteorCursor: any) {
-    this.#meteorCursor = meteorCursor;
+import type { ObserveCallbacks, ObserveChangesCallbacks, ObserveOnlyOptions, ObserveOptions, Stringable } from "observe-mongo/es2015";
+import { CompatibleMeteorFindCursor as CompatibleMeteorFindCursorCommon } from "../lib/cursor";
+import { HookedFindCursorOptions } from "mongo-collection-hooks/es2015/hookedFindCursor.js";
+export class CompatibleMeteorFindCursor<
+  TSchema extends { _id?: Stringable },
+  ObserveSchema extends { _id: Stringable } = TSchema extends { _id: Stringable } ? TSchema : { _id: Stringable }
+> extends CompatibleMeteorFindCursorCommon<TSchema, ObserveSchema> {
+  constructor(
+    filter: Filter<TSchema> | undefined,
+    cursor: any,
+    options: HookedFindCursorOptions<TSchema>
+  ) {
+    super(filter, cursor, options);
   }
 
-  get options() {
-    return {
-      skip: this.#meteorCursor.skip,
-      limit: this.#meteorCursor.limit,
-      fields: this.#meteorCursor.fields || {}
-    };
-  }
-
-  async next(): Promise<TSchema | null> {
-    if (!this.#iterator) {
-      this.#iterator = this.#meteorCursor[Symbol.iterator]() as Iterator<TSchema>;
+  observe(callbacks: ObserveCallbacks<ObserveSchema>, options?: ObserveOptions<ObserveSchema> & ObserveOnlyOptions) {
+    if (options?.suppressInitial) {
+      // @ts-expect-error
+      callbacks._suppress_initial = true;
     }
-
-    const nextItem = this.#iterator.next();
-    this.#i++;
-    if (nextItem.done) {
-      this.#iterator = undefined;
-      this.#i = 0;
-      return null;
+    if (options?.noIndices) {
+      // @ts-expect-error
+      callbacks._no_indices = true;
     }
-    return nextItem.value;
+    return LocalCollection._observeFromObserveChanges(this, callbacks);
   }
 
-  /**
-   * @deprecated Use toArray instead and convert to promises. This is the way.
-   */
-  fetch(): TSchema[] {
-    return this.#meteorCursor.fetch().slice(this.#i).map((doc: TSchema) => this.#mapTransform(doc));
+  observeChanges(
+    callbacks: ObserveChangesCallbacks<ObserveSchema["_id"], Omit<ObserveSchema, "_id">>,
+    options?: ObserveOptions<ObserveSchema>
+  ) {
+    if (options?.suppressInitial) {
+      // @ts-expect-error
+      callbacks._suppress_initial = true;
+    }
+    return this._cursor.observeChanges(callbacks, options);
   }
 
-  toArray() {
-    return Promise.resolve(this.#meteorCursor.fetch().slice(this.#i).map((doc: TSchema) => this.#mapTransform(doc)));
-  }
-
-  forEach(iterator: (doc: TSchema) => void) {
-    return Promise.resolve(this.#meteorCursor.slice(this.#i).forEach(iterator));
-  }
-
-  #applyMapTransform = <T>(transform: (doc: TSchema) => T) => {
-    const oldTransform = this.#mapTransform;
-
-    // @ts-expect-error
-    this.#mapTransform = (doc => transform(oldTransform(doc)));
-  }
-
-  map<T>(transform: (doc: TSchema) => T): FindCursor<T> {
-    this.#applyMapTransform(transform);
-    return this as unknown as FindCursor<T>;
-  }
-
-  count() {
-    return Promise.resolve(this.#meteorCursor.count());
-  }
-
-  observe(...args: any[]) {
-    return this.#meteorCursor.observe(...args);
-  }
-
-  observeChanges(...args: any[]) {
-    return this.#meteorCursor.observeChanges(...args);
+  clone(): CompatibleMeteorFindCursor<TSchema, ObserveSchema> {
+    return new CompatibleMeteorFindCursor<TSchema, ObserveSchema>(
+      this._filter,
+      this._cursor.clone(),
+      this._originalOptions
+    );
   }
 }

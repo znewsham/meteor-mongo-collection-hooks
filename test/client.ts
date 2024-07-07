@@ -14,8 +14,7 @@ describe("Collection Hooks", () => {
       });
     });
     const id = await collection.insertOne({});
-    console.log(id);
-    console.log(await promise);
+    await promise;
   });
   it("Server insert is observed", async () => {
     Meteor.subscribe("testClient");

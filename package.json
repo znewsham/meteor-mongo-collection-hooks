@@ -11,15 +11,18 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "peerDependencies": {
-    "mongo-collection-hooks": "^0.1.3"
+    "mongo-collection-hooks": "^0.2.2",
+    "observe-mongo": "^0.1.1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/meteor": "^2.9.8",
     "@types/mocha": "^10.0.7",
-    "mongo-collection-hooks": "^0.1.3",
-    "mongodb": "^6.7.0",
+    "mongo-collection-helpers": "^1.0.9",
+    "mongo-collection-hooks": "^0.2.2",
+    "mongodb": "^5.9.2",
+    "observe-mongo": "0.1.1",
     "typescript": "^5.5.2"
   }
 }

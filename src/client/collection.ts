@@ -3,7 +3,7 @@ import { LocalCollection } from "meteor/minimongo";
 import { Meteor } from "meteor/meteor";
 import type { Collection, Filter, FindCursor, OptionalUnlessRequiredId, UpdateFilter } from "mongodb";
 
-import { ClientCursor } from "./cursor";
+import { ClientCursor } from "./mongoCursor";
 import {
   CompatibleAmendedDeleteOptions,
   CompatibleAmendedFindOneOptions,
@@ -27,19 +27,31 @@ export class ClientCollection<TSchema extends Document = Document> implements Pi
     if (!connection._mongo_livedata_collections) {
       connection._mongo_livedata_collections = {};
     }
-    this.#localCollection = connection._mongo_livedata_collections[this.#name] || new LocalCollection(this.#name);
+    if (!connection._mongo_livedata_collections[this.#name]) {
+      connection._mongo_livedata_collections[this.#name] = new LocalCollection(this.#name);
+    }
+    this.#localCollection = connection._mongo_livedata_collections[this.#name];
+    Mongo.Collection.prototype._maybeSetUpReplication.call(this, this.collectionName, {});
   }
 
   get collectionName() {
     return this.#name;
   }
 
+  get _collection() {
+    return this.#localCollection;
+  }
+
+  get _connection() {
+    return this.#connection;
+  }
+
   findOne<T extends TSchema = TSchema>(filter?: Filter<TSchema>, options?: CompatibleAmendedFindOneOptions<TSchema>): Promise<T | null> {
-    return Promise.resolve(this.#localCollection.findOne(filter, options));
+    return Promise.resolve(this.#localCollection.findOne(filter || {}, options));
   }
 
   find<T extends TSchema = TSchema>(filter?: Filter<TSchema>, options?: CompatibleAmendedFindOneOptions<TSchema>): FindCursor<T> {
-    return new ClientCursor(this.#localCollection.find(filter, options)) as unknown as FindCursor<T>;
+    return new ClientCursor(this.#localCollection.find(filter || {}, options)) as unknown as FindCursor<T>;
   }
 
   insertOne(doc: OptionalUnlessRequiredId<TSchema>, {

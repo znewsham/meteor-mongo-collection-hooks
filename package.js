@@ -1,11 +1,12 @@
 Package.describe({
   summary: "A replacement hooks package with superior mongo support",
-  version: "0.1.0",
+  version: "0.2.1",
   git: "https://github.com/znewsham/meteor-mongo-collection-hooks",
   name: "znewsham:mongo-collection-hooks"
 });
 
 Package.onUse((api) => {
+  api.versionsFrom("METEOR@2.2");
   api.use([
     "ecmascript",
     "typescript",

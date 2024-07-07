@@ -1,10 +1,10 @@
 {
   "include": ["src/server/*", "src/lib/*", "src/client/*", "test/*"],
-  // "exclude": ["src/*", "src/lib/*", "src/server/*", "src/client/*", "test/*"],
   "compilerOptions": {
     "outDir": "lib",
-    "module": "CommonJS",
+    "module": "preserve",
     "target": "es2016",
+    "moduleResolution": "bundler",
     "declaration": true,
     "skipLibCheck": true,
     "strict": true,
@@ -25,9 +25,48 @@
       "meteor/znewsham:mongo-collection-hooks": [
         "./src/server/index.ts"
       ],
+      "meteor/cultofcoders:redis-oplog": [
+        "../redis-oplog/redis-oplog.js"
+      ],
+      "meteor/cultofcoders:redis-oplog/*": [
+        "../redis-oplog/*"
+      ],
       "meteor/*": [
         "../node_modules/@types/meteor/*"
-      ]
+      ],
+      // "optimistic-meteor/es2015": [
+      //   "../../linked_modules/optimistic-meteor/es2015"
+      // ],
+      // "observe-mongo/es2015": [
+      //   "../../linked_modules/observe-mongo/es2015"
+      // ],
+      // "optimistic-meteor": [
+      //   "../../linked_modules/optimistic-meteor"
+      // ],
+      // "observe-mongo": [
+      //   "../../linked_modules/observe-mongo"
+      // ],
+      // "mongo-collection-hooks/es2015": [
+      //   "../../linked_modules/mongo-collection-hooks/es2015"
+      // ],
+      // "optimistic-meteor/es2015/*": [
+      //   "../../linked_modules/optimistic-meteor/es2015/*.ts",
+      //   "../../linked_modules/optimistic-meteor/es2015/*.d.ts",
+      //   "../../linked_modules/optimistic-meteor/es2015/*.js",
+      //   "../../linked_modules/optimistic-meteor/es2015/*"
+      // ],
+      // "observe-mongo/es2015/*": [
+      //   "../../linked_modules/observe-mongo/es2015/*.ts",
+      //   "../../linked_modules/observe-mongo/es2015/*.d.ts",
+      //   "../../linked_modules/observe-mongo/es2015/*.js",
+      //   "../../linked_modules/observe-mongo/es2015/*"
+      // ],
+      // "mongo-collection-hooks/es2015/*": [
+      //   "../../linked_modules/mongo-collection-hooks/es2015/*.ts",
+      //   "../../linked_modules/mongo-collection-hooks/es2015/*.d.ts",
+      //   "../../linked_modules/mongo-collection-hooks/es2015/*.js",
+      //   "../../linked_modules/mongo-collection-hooks/es2015/*",
+      // ],
     }
   }
 }
